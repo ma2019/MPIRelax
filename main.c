@@ -26,9 +26,7 @@ double xPlusy(double x, double y) {
     return x+y;
 }
 
-double * generatePattern(double * array, int dimension) {
-    //double *relaxArray = (double*)malloc(dimension*dimension* sizeof(double));
-
+double * generatePattern(double * array) {
     for(int row = 0; row < dimension; row++) {
         for(int column = 0; column < dimension; column++) {
             int index = dimension*row+column;
@@ -42,7 +40,7 @@ double * generatePattern(double * array, int dimension) {
     for(int row = 1; row < dimension-1; row++) {
         for(int column = 1; column < dimension-1; column++) {
             int index = dimension*row+column;
-            array[index] = generateRandom(0, 10);
+            array[index] = generateRandom(0, 100);
         }
     }
     printf("The array to relax is: \n");
@@ -50,8 +48,37 @@ double * generatePattern(double * array, int dimension) {
     return array;
 }
 
-void relaxSequentially() {
+void relaxSequentially(double *array) {
+    double achievedPrecision;
+    double precisionReached = 0;
 
+    double *copyOfArray = (double*)malloc(dimension*dimension* sizeof(double));
+
+    while (precisionReached == 0) {
+        for (int row = 1; row < dimension - 1; row++) {
+            for (int column = 1; column < dimension - 1; column++) {
+                copyOfArray[dimension * row + column] =
+                        array[dimension * row + column];
+                array[dimension * row + column] =
+                        (((array[(dimension * row + column) - 1])
+                        + (array[(dimension * row + column) + 1])
+                        + (array[(dimension * row + column)
+                        - dimension]) + (array[(dimension * row
+                        + column) + dimension])) / 4);
+                achievedPrecision = copyOfArray[dimension * row + column]
+                        - array[dimension * row + column];
+                if (achievedPrecision < 0) {
+                    achievedPrecision = achievedPrecision * (-1);
+                }
+                if (achievedPrecision < precision) {
+                    precisionReached = 1;
+                } else {
+                    precisionReached = 0;
+                }
+            }
+
+        }
+    }
 }
 
 void elementsToRelax() {
@@ -93,7 +120,7 @@ int main(int argc, char **argv) {
 
     dimension = atoi(argv[1]);
     numberOfProcesses = atoi(argv[2]);
-    precision = atoi(argv[3]);
+    precision = strtod(argv[3], NULL);
 
     if(numberOfProcesses < 1 || numberOfProcesses > 32) {
         numberOfProcesses = 32;
@@ -103,12 +130,35 @@ int main(int argc, char **argv) {
 
     double *relaxArray = (double*)malloc(dimension*dimension* sizeof(double));
 
-    relaxArray = generatePattern(relaxArray, dimension);
+    relaxArray = generatePattern(relaxArray);
 
     printf("The array in main now is: \n");
 
     printArray(relaxArray);
 
+    double *relaxSeqArray = (double*)malloc(dimension*dimension* sizeof(double));
+
+    for(int n = 0; n <= dimension*dimension; n++) {
+        relaxSeqArray[n] = relaxArray[n];
+    }
+
+    startTime = clock();
+
+    relaxSequentially(relaxSeqArray);
+
+    endTime = clock();
+
+    seqTimeTaken = ((double)(endTime-startTime));
+
+    printf("The array after sequential relax is: \n)");
+
+    printArray(relaxSeqArray);
+
+    printf("Time taken to relax sequentially: %f\n", seqTimeTaken);
+
+    printf("The relaxArray is still: \n");
+
+    printArray(relaxArray);
 
     printf("Hello, World!\n");
     return 0;
