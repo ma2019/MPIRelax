@@ -79,6 +79,7 @@ void relaxSequentially(double *array) {
 
         }
     }
+    free(copyOfArray);
 }
 
 void elementsToRelax() {
@@ -99,13 +100,25 @@ int checkPrecision() {
     return precisionReached;
 }
 
-int testForCorrectness() {
-    int correct = 0;
-    while(correct == 0) {
-        /* Check for correctness here */
+void testForCorrectness(double * array) {
+    int correct = 1;
+    for(int row = 0; row < dimension; row++) {
+        for(int column = 0; column < dimension; column++) {
+            int index = dimension*row+column;
+            int functionValue = (int) xPlusy(row, column);
+            int arrayElement = (int) array[index];
+            if(arrayElement == xPlusy(row, column)) {
+                correct = 0;
+            } else {
+                correct = 1;
+                printf("The element at (%d,%d) should be %d, is %d\n",
+                        row, column, functionValue, arrayElement);
+            }
+        }
     }
-    printf("The relaxation technique is incorrect.\n");
-    return correct;
+    if(correct == 0) {
+        printf("The relaxation technique is correct!\n");
+    }
 }
 
 int main(int argc, char **argv) {
@@ -153,6 +166,8 @@ int main(int argc, char **argv) {
     printf("The array after sequential relax is: \n)");
 
     printArray(relaxSeqArray);
+    testForCorrectness(relaxSeqArray);
+    free(relaxSeqArray);
 
     printf("Time taken to relax sequentially: %f\n", seqTimeTaken);
 
