@@ -48,40 +48,6 @@ double * generatePattern(double * array) {
     return array;
 }
 
-void relaxSequentially(double *array) {
-    double achievedPrecision;
-    double precisionReached = 0;
-
-    double *copyOfArray = (double*)malloc(dimension*dimension* sizeof(double));
-
-    while (precisionReached == 0) {
-        for (int row = 1; row < dimension - 1; row++) {
-            for (int column = 1; column < dimension - 1; column++) {
-                copyOfArray[dimension * row + column] =
-                        array[dimension * row + column];
-                array[dimension * row + column] =
-                        (((array[(dimension * row + column) - 1])
-                        + (array[(dimension * row + column) + 1])
-                        + (array[(dimension * row + column)
-                        - dimension]) + (array[(dimension * row
-                        + column) + dimension])) / 4);
-                achievedPrecision = copyOfArray[dimension * row + column]
-                        - array[dimension * row + column];
-                if (achievedPrecision < 0) {
-                    achievedPrecision = achievedPrecision * (-1);
-                }
-                if (achievedPrecision < precision) {
-                    precisionReached = 1;
-                } else {
-                    precisionReached = 0;
-                }
-            }
-
-        }
-    }
-    //free(&copyOfArray);
-}
-
 int * elementsToRelax(int relaxableElements) {
     int *indicesToRelax = (int*)malloc(relaxableElements * sizeof(int));
 
@@ -228,22 +194,6 @@ int main(int argc, char **argv) {
     for(int n = 0; n <= dimension*dimension; n++) {
         relaxSeqArray[n] = inputArray[n];
     }
-
-    startTime = clock();
-
-    relaxSequentially(relaxSeqArray);
-
-    endTime = clock();
-
-    seqTimeTaken = ((double)(endTime-startTime));
-
-    printf("The array after sequential relax is: \n");
-
-    printArray(relaxSeqArray);
-    testForCorrectness(relaxSeqArray);
-    free(relaxSeqArray);
-
-    printf("Time taken to relax sequentially: %f\n", seqTimeTaken);
 
     printf("The inputArray is still: \n");
 
