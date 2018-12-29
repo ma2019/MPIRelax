@@ -4,3 +4,5 @@ project(MPIRelax C)
 set(CMAKE_C_STANDARD 99)
 
 add_executable(MPIRelax main.c)
+
+include_directories(/usr/include/mpi/)
