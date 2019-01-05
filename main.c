@@ -189,6 +189,147 @@ bool valueIsInArray(const int * columnToRelaxArray, int size, int column) {
     return false;
 }
 
+void receiveColumns(int processRank, double *leftArray,
+        double *rightArray, int column, int iteration) {
+    int leftRank = -1;
+    int rightRank = -1;
+    double receivedDummy;
+    if(column == 1) { //the first column
+        rightRank = 1;
+        printf("processRank: %d, leftRank: %d, rightRank: %d, column: %d\n",
+               processRank, leftRank, rightRank, column);
+        MPI_Recv(&receivedDummy, dimension-2, MPI_DOUBLE, rightRank, iteration,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Received %f\n", receivedDummy);
+        printf("processRank: %d, leftRank: %d, rightRank: %d, column: %d\n",
+               processRank, leftRank, rightRank, column);
+        printf("Received (HOW?) %d at %d from %d!\n", column, processRank, rightRank);
+    } else if(column == dimension-1) { //the last column
+        if(processRank == 0) {
+            /*
+             * If process 0 is at the last column, then second last
+             * was relaxed by the process with highest rank
+             * among the active processes
+             */
+            leftRank = numberOfActiveProcesses-1;
+        } else {
+            leftRank = processRank-1;
+        }
+        printf("processRank: %d, leftRank: %d, rightRank: %d, column: %d\n",
+               processRank, leftRank, rightRank, column);
+        //MPI_Recv(&leftArray, dimension-2, MPI_DOUBLE, leftRank,
+        //         iteration, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&receivedDummy, dimension-2, MPI_DOUBLE, rightRank, iteration,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Received %f\n", receivedDummy);
+        printf("Received (THIS?) %dc at %d from %d!\n", column, processRank, leftRank);
+    } else {
+        if(processRank == 0) {
+            leftRank = numberOfActiveProcesses-1;
+            rightRank = processRank + 1;
+        } else if (processRank == numberOfActiveProcesses - 1) {
+            leftRank = processRank - 1;
+            rightRank = 0;
+        } else {
+            leftRank = processRank - 1;
+            rightRank = processRank + 1;
+        }
+        printf("processRank: %d, leftRank: %d, rightRank: %d, column: %d\n",
+               processRank, leftRank, rightRank, column);
+        MPI_Recv(&receivedDummy, dimension-2, MPI_DOUBLE, rightRank, iteration,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Received %f\n", receivedDummy);
+        //MPI_Recv(&leftArray, dimension-2, MPI_DOUBLE, leftRank,
+        //         iteration, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Received (OR?) %d at %d from %d!\n", column, processRank, leftRank);
+        //MPI_Recv(&rightArray, dimension-2, MPI_DOUBLE, rightRank,
+        //         iteration, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Received (MBE?) %d at %d from %d!\n", column, processRank, rightRank);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
+void sendColumns(int processRank, double *myArray, double *leftArray,
+        double *rightArray, int column, int iteration) {
+    double dummyInformation = 5.0;
+    int leftRank = -1;
+    int rightRank = -1;
+    if(column == 1) { //the first column
+        rightRank = 1;
+        printf("processRank: %d, leftRank: %d, rightRank: %d, column: %d\n",
+                processRank, leftRank, rightRank, column);
+        MPI_Send(&dummyInformation, dimension-2, MPI_DOUBLE, rightRank, iteration,
+                MPI_COMM_WORLD);
+        printf("Sent %d from %d to %d!\n", column, processRank, rightRank);
+    } else if(column == dimension-1) { //the last column
+        if(processRank == 0) {
+            /*
+             * If process 0 is at the last column, then second last
+             * was relaxed by the process with highest rank
+             * among the active processes
+             */
+            leftRank = numberOfActiveProcesses-1;
+        } else {
+            leftRank = processRank-1;
+        }
+        printf("processRank: %d, leftRank: %d, rightRank: %d, column: %d\n",
+               processRank, leftRank, rightRank, column);
+        //MPI_Send(&myArray, dimension-2, MPI_DOUBLE, leftRank,
+        //         iteration, MPI_COMM_WORLD);
+        MPI_Send(&dummyInformation, dimension-2, MPI_DOUBLE, rightRank, iteration,
+                 MPI_COMM_WORLD);
+        printf("Sent %d from %d to %d!\n", column, processRank, leftRank);
+    } else {
+        if(processRank == 0) {
+            leftRank = numberOfActiveProcesses-1;
+            rightRank = processRank + 1;
+        } else if (processRank == numberOfActiveProcesses - 1) {
+            leftRank = processRank - 1;
+            rightRank = 0;
+        } else {
+            leftRank = processRank - 1;
+            rightRank = processRank + 1;
+        }
+        printf("processRank: %d, leftRank: %d, rightRank: %d, column: %d\n",
+               processRank, leftRank, rightRank, column);
+        MPI_Send(&dummyInformation, dimension-2, MPI_DOUBLE, rightRank, iteration,
+                 MPI_COMM_WORLD);
+        //MPI_Send(&myArray, dimension-2, MPI_DOUBLE, leftRank,
+        //       iteration, MPI_COMM_WORLD);
+        printf("Sent %d from %d to %d!\n", column, processRank, leftRank);
+        //MPI_Send(&myArray, dimension-2, MPI_DOUBLE, rightRank,
+        //        iteration, MPI_COMM_WORLD);
+        printf("Sent %d from %d to %d!\n", column, processRank, rightRank);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
+void testFunctionThatCommsWorked(int processRank,
+        double * leftArray, double * rightArray) {
+    if(processRank == 0) {
+        printf("Rank: %d, Received right array: \n", processRank);
+        for(int n = 0; n < dimension-2; n++) {
+            printf("%f   ", rightArray[n]);
+        }
+    } else if(processRank == numberOfActiveProcesses-1) {
+        printf("Rank: %d, Received left array: \n", processRank);
+        for(int n = 0; n < dimension-2; n++) {
+            printf("%f   ", leftArray[n]);
+        }
+    } else {
+        printf("Rank: %d, Received left array: \n", processRank);
+        for(int n = 0; n < dimension-2; n++) {
+            printf("%f   ", leftArray[n]);
+        }
+        printf("\nRank: %d, Received right array: \n", processRank);
+        for(int n = 0; n < dimension-2; n++) {
+            printf("%f   ", rightArray[n]);
+        }
+    }
+
+    printf("\n");
+}
+
 void relaxMpi(double ** array, int * columnToRelaxArray, int lengthOfColumns,
         int processRank, int numberOfActiveProcesses) {
 
@@ -228,8 +369,9 @@ void relaxMpi(double ** array, int * columnToRelaxArray, int lengthOfColumns,
                     array[row][column] = relax(array, row, column);
 
                     for(int n = 0; n < dimension-2; n++) {
-                        if(myArray[n] > -1) {
-                            myArray[n] =
+                        if(myArray[n] == -1) {
+                            myArray[n] = array[row][column];
+                            break;
                         }
                     }
 
@@ -242,6 +384,13 @@ void relaxMpi(double ** array, int * columnToRelaxArray, int lengthOfColumns,
 
                     precisionReachedByRoot = checkPrecision(achievedPrecision);
                 }
+                if(numberOfActiveProcesses > 2) {
+                    sendColumns(processRank, myArray, leftArray,
+                                rightArray, column, iteration);
+                    receiveColumns(processRank, leftArray, rightArray,
+                                   column, iteration);
+                }
+
             }
         }
         printf("Iteration: %d; process rank: %d,\n", iteration, processRank);
@@ -254,71 +403,19 @@ void relaxMpi(double ** array, int * columnToRelaxArray, int lengthOfColumns,
         if(precisionReachedByAll == numberOfActiveProcesses) {
             toProceed = 0;
         }
-
+        printf("myArray for %d is: \n", processRank);
         for(int i = 0; i < dimension-2; i++) {
-            myArray[i] =
+            printf("%f   ", myArray[i]);
         }
+        printf("\n");
 
-        //populate myArray
-        //gather all myArray from left and put in left
-        //gather all myArrays from right and put in right
-
-//        for(int i = 0; i < dimension-2; i++) {
-//
-//            int columnToRelax = columnToRelaxArray[i];
-//
-//
-//            /**
-//             * making a copy to compare for precision later
-//             */
-//            copyOfArray[columnToRelax] = array[columnToRelax];
-//
-//            /**
-//             * replacing the element with its border elements;
-//             * explain the maths
-//             */
-//            array[columnToRelax][i] = relax(array[i], columnToRelax);
-//
-//
-//            achievedPrecision = copyOfArray[columnToRelax]-array[columnToRelax];
-//            if(achievedPrecision < 0) {
-//                achievedPrecision = achievedPrecision * (-1);
-//            }
-//
-//            precisionReachedByRoot = checkPrecision(achievedPrecision);
-//        }
-//        printf("Iteration: %d; Process rank: %d\n", iteration, processRank);
-//        printf("The achieved precision by %d is: %f\n",
-//                processRank, achievedPrecision);
-//
-//        MPI_Allreduce(&precisionReachedByRoot, &precisionReachedByAll,
-//                1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-//
-//        if(precisionReachedByAll == numberOfProcesses) {
-//            toProceed = 0;
-//        }
-//
-//        int freeIndex = 0;
-//
-//        for(int i = startingIndex; i < stoppingIndex; i++) {
-//            //myArray[freeIndex] = array[i];
-//            freeIndex++;
-//        }
-//
-//        for(int i = 0; i < numberOfProcesses; i++) {
-//            if(i == 0) {
-//
-//            }
-//        }
-
-
-
+        //This is for verification.
+        testFunctionThatCommsWorked(processRank, leftArray, rightArray);
 
         printf("Iteration: %d; Process rank: %d\n", iteration, processRank);
         printArray(processRank, array);
         iteration++;
     }
-    //MPI_Barrier(MPI_COMM_WORLD);
 
 
 }
@@ -424,7 +521,7 @@ int main(int argc, char **argv) {
     }
     printf("Hello, World! -from %d \n", processRank);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    //MPI_Barrier(MPI_COMM_WORLD);
 
     //for(int i = 0; i < numberOfProcesses; i++) {
         MPI_Finalize();
