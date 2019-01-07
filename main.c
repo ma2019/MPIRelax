@@ -1,23 +1,23 @@
-#include <stdio.h>
+#include<stdio.h>
 #include<math.h>
 #include<stdlib.h>
 #include<time.h>
 #include<mpi.h>
-#include <stdbool.h>
+#include<stdbool.h>
 
 int dimension;
 int numberOfActiveProcesses;
 double targetPrecision;
+int perProcess;
 
 void printArray(int processRank, double ** array) {
     printf("Rank: %d\n", processRank);
     for(int column = 0; column < dimension; column++) {
         for(int row = 0; row < dimension; row++) {
-            printf("%f     ", array[column][row]);
+            printf("%f    ", array[column][row]);
         }
         printf("\n");
     }
-    printf("Address: %p\n", &array);
 }
 
 double generateRandom(double randMin, double randMax) {
@@ -33,26 +33,23 @@ double xPlusy(double x, double y) {
 double ** generatePattern(int processRank, double ** array) {
     for(int row = 0; row < dimension; row++) {
         for(int column = 0; column < dimension; column++) {
-            //int index = dimension*row+column;
             array[row][column] = xPlusy(row, column);
         }
     }
-    //printf("The final array is: \n");
-    //printArray(processRank, array);
+    printf("The final array is: \n");
+    printArray(processRank, array);
     for(int row = 1; row < dimension-1; row++) {
         for(int column = 1; column < dimension-1; column++) {
-            //int index = dimension*row+column;
-            array[row][column] = generateRandom(0, 100);
+            array[row][column] = 0;
         }
     }
-    //printf("The array to relax is: \n");
-    //printArray(processRank, array);
+    printf("The array to relax is: \n");
+    printArray(processRank, array);
     return array;
 }
 
 int processInChargeOfThis(int column, int * columnToRelaxArray,
                           int length, int processRank) {
-    int relaxableColumns = dimension-2;
     int modulo = column%numberOfActiveProcesses;
     for(int i = 0; i < length; i++) {
         if(columnToRelaxArray[i] == column) {
@@ -93,6 +90,8 @@ int * divideColumnsAmongProcesses(int processRank, int numberOfProcesses) {
     int modulo = relaxableColumns%numberOfActiveProcesses;
     int columnsPerProcess = (relaxableColumns/numberOfActiveProcesses);
     int *columnsToRelax = (int*)malloc((columnsPerProcess+1) * sizeof(int));
+
+    perProcess = columnsPerProcess+1;
 
     //Fill with dummy numbers
     for(int i = 0; i <= columnsPerProcess; i++) {
@@ -148,7 +147,7 @@ double relax(double ** array, int row, int column) {
 }
 
 bool valueIsInArray(const int * columnToRelaxArray, int size, int column) {
-    for(int everyColumn = 0; everyColumn < size; everyColumn++) {
+    for(int everyColumn = 0; everyColumn <= size; everyColumn++) {
         if(columnToRelaxArray[everyColumn] == column) {
             return true;
         }
@@ -188,12 +187,6 @@ void relaxMpi(double ** array, int * columnToRelaxArray, int lengthOfColumns,
                 for(int row = 1; row < dimension-1; row++) {
                     copyOfArray[row][column] = array[row][column];
                     array[row][column] = relax(array, row, column);
-                    for(int n = 0; n < dimension-2; n++) {
-                        if(myArray[n] == -1) {
-                            myArray[n] = array[row][column];
-                            break;
-                        }
-                    }
 
                     achievedPrecision = copyOfArray[row][column] -
                             array[row][column];
@@ -222,21 +215,25 @@ void relaxMpi(double ** array, int * columnToRelaxArray, int lengthOfColumns,
         }
         iteration++;
     }
+    printf("Completed with %d iterations.\n", iteration);
 }
 
-void testForCorrectness(const double * array) {
+void testForCorrectness(double ** array) {
     int correct = 1;
     for(int row = 0; row < dimension; row++) {
         for(int column = 0; column < dimension; column++) {
-            int index = dimension*row+column;
-            int functionValue = (int) xPlusy(row, column);
-            int arrayElement = (int) array[index];
-            if(arrayElement == xPlusy(row, column)) {
+            double functionValue = xPlusy(row, column);
+            double arrayElement = array[row][column];
+            double difference = functionValue-arrayElement;
+            if(difference < 0) {
+                difference = difference*-1;
+            }
+            if(difference < 1) {
                 correct = 0;
             } else {
                 correct = 1;
-                printf("The element at (%d,%d) should be %d, is %d\n",
-                        row, column, functionValue, arrayElement);
+//                printf("The element at (%d,%d) should be %f, is %f\n",
+//                        row, column, functionValue, arrayElement);
             }
         }
     }
@@ -247,6 +244,8 @@ void testForCorrectness(const double * array) {
 
 int main(int argc, char **argv) {
 
+    double startTime, endTime;
+
     int rc, processRank, numberOfProcesses;
 
     rc = MPI_Init(&argc, &argv);
@@ -255,11 +254,14 @@ int main(int argc, char **argv) {
         printf("Error.\n");
         MPI_Abort(MPI_COMM_WORLD, rc);
     }
+
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
     MPI_Comm_size(MPI_COMM_WORLD, &numberOfProcesses);
 
     dimension = atoi(argv[1]);
     targetPrecision = strtod(argv[2], NULL);
+
+    printf("BEGIN: %d, %f, %d\n", dimension, targetPrecision, numberOfProcesses);
 
     /**
      * How would I check that I am passing in valid number of processes?
@@ -292,14 +294,32 @@ int main(int argc, char **argv) {
     int* columnsToRelax = divideColumnsAmongProcesses(processRank,
             numberOfProcesses);
 
-    int lengthOfColumnsToRelax = (int) (sizeof(columnsToRelax)/
-            sizeof(columnsToRelax[0]));
+    //int lengthOfColumnsToRelax = (int) (sizeof(columnsToRelax)/
+            //sizeof(columnsToRelax[0]));
+
+    int lengthOfColumnsToRelax = perProcess;
+
+    //printf("Rank: %d, Length: %d\n", processRank, lengthOfColumnsToRelax);
+
+//    for(int i = 0; i <= lengthOfColumnsToRelax; i++) {
+//        printf("Column: %d", columnsToRelax[i]);
+//    }
+//
+//    printf("\n");
+
+    startTime = MPI_Wtime();
 
     if(processRank < numberOfActiveProcesses) {
         relaxMpi(relaxMpiArray, columnsToRelax, lengthOfColumnsToRelax,
                  processRank, numberOfActiveProcesses);
     }
-    printArray(processRank, relaxMpiArray);
+
+    endTime = MPI_Wtime();
+
+    //printArray(processRank, relaxMpiArray);
+    printf("Rank: %d, Time: %f\n", processRank, endTime-startTime);
+
+    testForCorrectness(relaxMpiArray);
 
     MPI_Finalize();
 
